@@ -190,6 +190,12 @@ class RestInlineLexer(mistune.InlineLexer):
 
 
 class RestRenderer(mistune.Renderer):
+    image_options_re = {
+        'width': re.compile(r'width:(?P<width>[0-9a-z]+)'),
+        'height': re.compile(r'height:(?P<height>[0-9a-z]+)'),
+        'scale': re.compile(r'scale:(?P<scale>[0-9]+[\%]?)'),
+        'align': re.compile(r'align:(?P<align>[a-z]+)')
+    }
     _include_raw_html = False
     list_indent_re = re.compile(r'^(\s*(#\.|\*)\s)')
     indent = ' ' * 3
@@ -435,13 +441,20 @@ class RestRenderer(mistune.Renderer):
         :param title: title text of the image.
         :param text: alt text of the image.
         """
+        # use alt text for image options
+        image_options = []
+        for (k, v) in self.image_options_re.items():
+            m = v.search(text)
+            if m:
+                image_options.append(
+                    '   :{}: {}'.format(k, m.group(k)))
+
         # rst does not support title option
         # and I couldn't find title attribute in HTML standard
         return '\n'.join([
             '',
             '.. image:: {}'.format(src),
-            '   :target: {}'.format(src),
-            '   :alt: {}'.format(text),
+            *image_options,
             '',
         ])
 
