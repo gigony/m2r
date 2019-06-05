@@ -212,6 +212,7 @@ class RestRenderer(mistune.Renderer):
     def __init__(self, *args, **kwargs):
         self.parse_relative_links = kwargs.pop('parse_relative_links', False)
         self.anonymous_references = kwargs.pop('anonymous_references', False)
+        self.relative_path = kwargs.pop('relative_path', '.')
         super(RestRenderer, self).__init__(*args, **kwargs)
         if not _is_sphinx:
             parse_options()
@@ -449,6 +450,10 @@ class RestRenderer(mistune.Renderer):
                 image_options.append(
                     '   :{}: {}'.format(k, m.group(k)))
 
+        # apply relative path
+        src = os.path.normpath(os.path.join(self.relative_path, src))
+        print("@@ relative_path =", self.relative_path)
+
         # rst does not support title option
         # and I couldn't find title attribute in HTML standard
         return '\n'.join([
@@ -568,6 +573,9 @@ class M2RParser(rst.Parser, object):
         else:
             inputstring = inputstrings
         config = document.settings.env.config
+        print("## M2RPARSER")
+        print("  ### settings._source", document.settings._source)
+        print("  ### settings._destination", document.settings._destination)
         converter = M2R(
             no_underscore_emphasis=config.no_underscore_emphasis,
             parse_relative_links=config.m2r_parse_relative_links,
@@ -599,11 +607,25 @@ class MdInclude(rst.Directive):
             raise self.warning('"%s" directive disabled.' % self.name)
         source = self.state_machine.input_lines.source(
             self.lineno - self.state_machine.input_offset - 1)
+        print("## project path", self.state.document.settings.env.project.srcdir)
+        print("## source", source)
         source_dir = os.path.dirname(os.path.abspath(source))
+        print("## source_dir", source_dir)
         path = rst.directives.path(self.arguments[0])
+        print("## path", path, self.arguments[0])
+        if os.path.isabs(path):
+            path = os.path.abspath(self.state.document.settings.env.project.srcdir) + path
         path = os.path.normpath(os.path.join(source_dir, path))
+        print("## path.normpath", path)
         path = utils.relative_path(None, path)
+        print("## path.relative_path", path)
         path = nodes.reprunicode(path)
+        print("## path.reprunicode", path)
+
+        relative_path = utils.relative_path(
+            os.path.abspath(source), os.path.abspath(os.path.dirname(path)))
+        print("## check relative_path:", os.path.abspath(source), os.path.abspath(
+            os.path.dirname(path)), relative_path, os.getcwd())
 
         # get options (currently not use directive-specific options)
         encoding = self.options.get(
@@ -645,7 +667,8 @@ class MdInclude(rst.Directive):
             no_underscore_emphasis=config.no_underscore_emphasis,
             parse_relative_links=config.m2r_parse_relative_links,
             anonymous_references=config.m2r_anonymous_references,
-            disable_inline_math=config.m2r_disable_inline_math
+            disable_inline_math=config.m2r_disable_inline_math,
+            relative_path=relative_path
         )
         include_lines = statemachine.string2lines(converter(rawtext),
                                                   tab_width,
